@@ -1,0 +1,37 @@
+# Dependabot configuration for the dev kit.
+#
+# SCOPE: GitHub Actions only, deliberately. Both other ecosystems in this repo are excluded on
+# purpose, and the reasons are worth keeping so nobody "fixes" the omission later.
+#
+# npm is NOT enabled. Ten Angular lockfiles live here — nine under samples/ and one under
+# .claude/skills/duplo-extension-dev/templates/ — and they stay pinned on purpose: a sample has to
+# build against whatever Angular the host portal ships, so its lockfile tracks the host, not
+# upstream latest. On top of that, @duplocloud-internal/ng-common-lib is vendored as a `file:`
+# tarball, which Dependabot cannot resolve or bump. Turning npm on would open pull requests that
+# nobody can merge.
+#
+# nuget is NOT enabled. The backend .csproj files restore the platform SDK from the host feed at
+# DUPLO_HOST, which Dependabot cannot reach. Its pull requests would fail to resolve and the repo
+# would look broken.
+#
+# Because npm is off, npm security alerts are cleared by hand instead: add the safe version to the
+# `overrides` block in every frontend/package.json and re-run `npm install --package-lock-only`.
+# Overrides are the only lever that works here — the vulnerable packages are transitive behind
+# exact pins their parents will never loosen (monaco-editor pins dompurify to an exact version;
+# @angular/cli pins @modelcontextprotocol/sdk, which is what drags in @hono/node-server). Keep the
+# override list identical across all ten frontends, and confirm `npm audit` reports zero and
+# `npm run build` still passes before pushing.
+#
+# Revisit nuget if the SDK feed resolves publicly. npm stays off regardless — the vendored
+# ng-common-lib tarball and the host-pinned Angular version are permanent constraints, not a
+# migration-era one.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore(ci)
+    labels:
+      - dependencies

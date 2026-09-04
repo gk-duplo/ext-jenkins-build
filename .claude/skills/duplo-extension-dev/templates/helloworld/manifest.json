@@ -1,0 +1,63 @@
+{
+  "manifestVersion": "1.0",
+  "id": "duplo.examples.helloworld",
+  "name": "Hello World",
+  "version": "0.1.0",
+
+  "sdkVersion": "REPLACED_BY_SKILL_FROM_sdk-version_ENDPOINT",
+  "backend": {
+    "assemblyDir": "duplo.examples.helloworld/0.1.0/backend",
+    "entryAssembly": "Duplo.Extension.HelloWorld.dll"
+  },
+
+  "resources": [
+    {
+      "ticketOriginType": "HelloWorld",
+      "restSegment": "extensions/helloworlds",
+      "subType": "hello-world",
+      "archetype": "typed",
+      "registrar": "DevOpsResource",
+      "entityType": "Duplo.Extension.HelloWorld.HelloWorld",
+      "specType": "Duplo.Extension.HelloWorld.HelloWorldSpec",
+      "resultType": "Duplo.Extension.HelloWorld.HelloWorldResult",
+      "hooksType": "Duplo.Extension.HelloWorld.HelloWorldHooks",
+      "serviceType": "Duplo.Extension.HelloWorld.HelloWorldService"
+    }
+  ],
+
+  "skills": [
+    { "folder": "duplo.examples.helloworld/0.1.0/skills/provision-helloworld", "isBuiltIn": true }
+  ],
+  "skillMappings": [
+    { "originType": "HelloWorld", "subType": "hello-world", "skillNames": ["provision-helloworld"], "timeout": { "provision": 300, "deprovision": 120 } }
+  ],
+
+  "frontend": {
+    "remote": {
+      "remoteName": "duploExtensionHelloworld",
+      "remoteEntry": "/v1/aiservicedesk/extensions/duplo.examples.helloworld/fe/remoteEntry.json",
+      "exposedModule": "./Extension",
+      "type": "module"
+    },
+    "menus": [
+      {
+        "id": "duplo.examples.helloworld-devops",
+        "title": "DevOps",
+        "type": "collapsible-section",
+        "children": [
+          {
+            "id": "duplo.examples.helloworld-hello-world",
+            "title": "Hello World",
+            "type": "item",
+            "matIcon": "hand-wave",
+            "relativeUrl": "extensions/helloworlds",
+            "order": 40
+          }
+        ]
+      }
+    ],
+    "routes": [
+      { "path": "extensions/helloworlds", "resourceType": "HelloWorld", "subType": "hello-world" }
+    ]
+  }
+}

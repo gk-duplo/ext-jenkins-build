@@ -1,0 +1,49 @@
+{
+  "manifestVersion": "1.0",
+  "id": "duplo.examples.worker-compute",
+  "name": "Worker Compute (Calculator)",
+  "version": "0.1.0",
+
+  "sdkVersion": "REPLACED_BY_SKILL_FROM_sdk-version_ENDPOINT",
+  "backend": {
+    "assemblyDir": "duplo.examples.worker-compute/0.1.0/backend",
+    "entryAssembly": "Duplo.Extension.Calculator.dll"
+  },
+
+  "resources": [
+    {
+      "ticketOriginType": "CalcWorker",
+      "restSegment": "extensions/calcworkers",
+      "subType": "calc-worker",
+      "archetype": "typed",
+      "registrar": "DevOpsResource",
+      "entityType": "Duplo.Extension.Calculator.Calculator",
+      "specType": "Duplo.Extension.Calculator.CalculatorSpec",
+      "resultType": "Duplo.Extension.Calculator.CalculatorResult",
+      "hooksType": "Duplo.Extension.Calculator.CalculatorHooks",
+      "serviceType": "Duplo.Extension.Calculator.CalculatorService"
+    }
+  ],
+
+  "frontend": {
+    "remote": {
+      "remoteName": "duploExtensionCalcWorker",
+      "remoteEntry": "/v1/aiservicedesk/extensions/duplo.examples.worker-compute/fe/remoteEntry.json",
+      "exposedModule": "./Extension",
+      "type": "module"
+    },
+    "menus": [
+      {
+        "id": "duplo.examples.worker-compute-devops",
+        "title": "DevOps",
+        "type": "collapsible-section",
+        "children": [
+          { "id": "duplo.examples.worker-compute-cw", "title": "Calc Worker", "type": "item", "matIcon": "calculate", "relativeUrl": "extensions/calcworkers", "order": 45 }
+        ]
+      }
+    ],
+    "routes": [
+      { "path": "extensions/calcworkers", "resourceType": "CalcWorker", "subType": "calc-worker" }
+    ]
+  }
+}

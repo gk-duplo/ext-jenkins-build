@@ -1,0 +1,50 @@
+name: Feature request
+description: Suggest an improvement to the dev-kit framework
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is for the **framework** — `run.sh`, `scripts/`, `docker-compose.yml`, `nginx/`,
+        `samples/`, `.claude/`, the workflows, and the docs.
+
+        Extensions you build are not framework. They live in your own copy of this repo under
+        `extensions/`, and they don't belong upstream — see
+        [CONTRIBUTING.md](https://github.com/duplocloud/devkit/blob/main/CONTRIBUTING.md).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and where does the kit get in your way? Describe the situation, not the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you'd like instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you've tried
+      description: The workaround you're using today, and why it isn't enough.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of the kit
+      options:
+        - run.sh / stop.sh / logs.sh — lifecycle
+        - scripts/ — build, deploy, register, upgrade, init
+        - docker-compose.yml or nginx/ — the local stack
+        - samples/
+        - .claude/ — the /duplo-extension skill or its reference docs
+        - .github/workflows/ — CI
+        - Documentation
+        - Something else, or not sure
+    validations:
+      required: true

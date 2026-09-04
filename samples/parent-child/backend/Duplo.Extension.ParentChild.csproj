@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Backend for the parent/child extension sample — two typed resources (HelloParent + HelloChild) in one
+    DLL. Compiled by the duplo-extension-dev skill with `dotnet publish` (same flow as hello-world):
+      1. GET  {host}/v1/aiservicedesk/extensions/sdk-version  -> -p:DuploSdkVersion=<value>
+      2. GET  {host}/v1/aiservicedesk/extensions/sdk-bundle   -> unzip into ./sdk-packages
+      3. dotnet publish -c Release -o <dist>/backend  (restores SDK from ./sdk-packages via nuget.config)
+    The SDK is referenced compile-only (ExcludeAssets="runtime") and exact-pinned to the running host version.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseAppHost>false</UseAppHost>
+    <IsPackable>false</IsPackable>
+    <DuploSdkVersion Condition="'$(DuploSdkVersion)' == ''">1.0.0</DuploSdkVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Duplocloud.AiHelpdesk.Sdk" Version="[$(DuploSdkVersion)]" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+</Project>

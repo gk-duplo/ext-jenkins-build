@@ -1,0 +1,106 @@
+name: Bug report
+description: Something in the dev kit itself doesn't work
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Two things before you start.
+
+        **Never paste `.env`, an admin token, or an LLM API key into this form.** `./run.sh` mints a
+        long-lived Administrator token into `.env`, and everything you write here is visible to
+        everyone who can see this repository. Redact tokens, keys, customer names, and account IDs
+        from any output you attach.
+
+        **If this is a security vulnerability, stop.** Close this form and email
+        `ai-reporting@duplocloud.net` — see
+        [SECURITY.md](https://github.com/duplocloud/devkit/blob/main/SECURITY.md).
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+      placeholder: |
+        Ran ./scripts/build-extension.sh extensions/foo and expected dist/extension.zip.
+        The frontend step failed with ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: The exact commands, in order, starting from a known state.
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: devkit-ref
+    attributes:
+      label: Dev-kit version
+      description: The `ref=` line from `.devkit-version`, or your commit — `git rev-parse --short HEAD`.
+      placeholder: main / 34e2883
+    validations:
+      required: true
+
+  - type: dropdown
+    id: target
+    attributes:
+      label: DUPLO_TARGET
+      description: From your `.env`. `local` builds against the stack this kit runs; `remote` builds against a hosted platform.
+      options:
+        - local
+        - remote
+        - not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of the kit
+      options:
+        - run.sh / stop.sh / logs.sh — lifecycle
+        - scripts/ — build, deploy, register, upgrade, init
+        - docker-compose.yml or nginx/ — the local stack
+        - samples/
+        - .claude/ — the /duplo-extension skill or its reference docs
+        - .github/workflows/ — CI
+        - Documentation
+        - Something else, or not sure
+    validations:
+      required: true
+
+  - type: input
+    id: sample
+    attributes:
+      label: Sample or extension involved
+      description: If one sample reproduces it, name it — helloworld, network-stack, parent-child, worker-compute, and so on.
+      placeholder: samples/helloworld
+
+  - type: input
+    id: environment
+    attributes:
+      label: OS and Docker version
+      description: Output of `uname -sm` and `docker --version`.
+      placeholder: Darwin arm64 / Docker version 27.3.1
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output
+      description: Command output or an excerpt from `./logs.sh`. Redact tokens, keys, and customer identifiers.
+      render: shell
+
+  - type: checkboxes
+    id: hygiene
+    attributes:
+      label: Before you submit
+      options:
+        - label: I removed tokens, keys, passwords, and customer identifiers from everything above.
+          required: true
+        - label: This is a bug in the dev kit's framework code, not in an extension I wrote.

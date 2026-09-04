@@ -1,0 +1,85 @@
+DuploCloud Extension Developer Kit
+Copyright 2026 DuploCloud, Inc.
+
+This product includes software developed by DuploCloud, Inc. ("DuploCloud").
+
+================================================================================
+COVERED BY THE APACHE LICENSE, VERSION 2.0
+================================================================================
+
+The source files in this repository authored by DuploCloud are licensed under the
+Apache License, Version 2.0 (see LICENSE). These include:
+
+    run.sh, stop.sh, logs.sh
+    scripts/
+    docker-compose.yml
+    nginx/
+    samples/          (EXCEPT the vendored library tarballs -- see below)
+    .claude/          (EXCEPT the vendored library tarballs -- see below)
+
+You may use, modify, and redistribute these files under the terms of that license.
+
+================================================================================
+NOT COVERED BY THE APACHE LICENSE -- PROPRIETARY DUPLOCLOUD UI LIBRARY
+================================================================================
+
+THE APACHE LICENSE DOES NOT COVER THE COMPILED DUPLOCLOUD PLATFORM UI LIBRARY
+PROVIDED IN THIS REPOSITORY AS AN NPM TARBALL:
+
+    packages/duplocloud-internal-ng-common-lib-*.tgz
+    .claude/skills/duplo-extension-dev/templates/*/frontend/vendor/
+        duplocloud-internal-ng-common-lib-*.tgz
+
+THAT FILE INCLUDES THE PROPRIETARY INTELLECTUAL PROPERTY OF DUPLOCLOUD. IT IS NOT
+OPEN SOURCE. IT IS THE COMPILED OUTPUT OF DUPLOCLOUD'S PRIVATE duplo-ui PORTAL
+SOURCE CODE, AND IT IS PUBLISHED ONLY TO A PRIVATE ACCESS-CONTROLLED REGISTRY. IT
+IS COMMITTED HERE SOLELY SO THAT YOU CAN BUILD EXTENSIONS WITHOUT CREDENTIALS FOR
+THAT REGISTRY -- NOT AS A GRANT OF OPEN SOURCE RIGHTS.
+
+THIS TARBALL IS LICENSED SEPARATELY PURSUANT TO THE TERMS AND CONDITIONS IN TERMS
+AS THE "LICENSED LIBRARY".
+
+IN SHORT: YOU MAY INSTALL IT AND BUILD YOUR EXTENSIONS AGAINST IT, AND YOU MAY
+SHIP THE PARTS OF IT THAT YOUR BUILD BUNDLES INTO YOUR COMPILED EXTENSION. YOU MAY
+NOT MODIFY IT, REVERSE ENGINEER IT, REPUBLISH IT TO ANY PACKAGE REGISTRY, OR
+OTHERWISE REDISTRIBUTE IT ON ITS OWN.
+
+================================================================================
+NOT COVERED BY THE APACHE LICENSE -- PROPRIETARY CONTAINER IMAGES
+================================================================================
+
+THE APACHE LICENSE DOES NOT COVER ANY DUPLOCLOUD CONTAINER IMAGE THAT THIS
+REPOSITORY REFERENCES OR PULLS. THOSE IMAGES ARE PROPRIETARY SOFTWARE AND ARE
+LICENSED SEPARATELY UNDER THE TERMS IN TERMS.md. AS OF THIS WRITING THEY ARE:
+
+    quay.io/duplocloud/duplo-ai-helpdesk
+    quay.io/duplocloud/duplo-agent
+    quay.io/duplocloud/duplo-ai-helpdesk-ui
+    quay.io/duplocloud/duplo-xterm
+
+THAT LIST IS ILLUSTRATIVE, NOT EXHAUSTIVE. IT COVERS ANY REGISTRY AND ANY IMAGE
+ADDED TO THE DEV KIT LATER. THESE IMAGES ARE LICENSED SEPARATELY PURSUANT TO THE
+TERMS AND CONDITIONS IN TERMS.
+
+THESE IMAGES ARE PROVIDED FOR LOCAL DEVELOPMENT AND EVALUATION ONLY. THEY MAY NOT
+BE MODIFIED, REVERSE ENGINEERED, REPACKAGED, OR REDISTRIBUTED, AND THEY MAY NOT BE
+USED IN PRODUCTION.
+
+For a production license, contact sales@duplocloud.net.
+
+================================================================================
+THIRD-PARTY IMAGES
+================================================================================
+
+This repository also references container images published by third parties, such
+as `mongo`. Those images are licensed by their respective publishers under their
+own terms -- neither the Apache License nor TERMS.md applies to them. Note in
+particular that MongoDB Community Server is distributed under the Server Side
+Public License (SSPL), which is not a permissive license.
+
+================================================================================
+YOUR EXTENSIONS
+================================================================================
+
+Extensions you author under extensions/ are yours. DuploCloud claims no ownership
+of and no license to them. See Section 6 of TERMS.md.

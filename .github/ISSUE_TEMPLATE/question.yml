@@ -1,0 +1,34 @@
+name: Question
+description: Ask how something in the dev kit works
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Answers here are **best effort** — see
+        [SUPPORT.md](https://github.com/duplocloud/devkit/blob/main/SUPPORT.md).
+
+        The README covers the full workflow, and the reference docs under `.claude/` cover most of
+        the "how do I build X" questions. Worth a look first.
+
+        **Don't paste `.env`, tokens, or API keys.**
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you've already tried
+      description: Commands you ran, docs you read, and what you saw.
+
+  - type: input
+    id: devkit-ref
+    attributes:
+      label: Dev-kit version
+      description: The `ref=` line from `.devkit-version`, or your commit SHA.
+      placeholder: main / 34e2883

@@ -1,0 +1,63 @@
+# Publishes the extension build toolchain image (.NET SDK 8 + Node 22) that scripts/build-extension.sh
+# runs builds in. Multi-arch so it works on CI (amd64) and Apple Silicon laptops (arm64).
+#
+# Auth comes from the org-level secrets QUAY_USERNAME / QUAY_PASSWORD, which every repo in the
+# duplocloud org already inherits — the same pair the other image pipelines use. They need push access to
+# quay.io/duplocloud/duplo-extension-builder.
+#
+# Both tags are load-bearing on the consumer side. `:latest` is the default scripts/_builder.sh resolves
+# (BUILDER_TAG defaults to latest), so it must exist or every default build falls back to compiling the
+# image locally. The commit tag is the pin: BUILDER_TAG=<sha> — or BUILDER_IMAGE=<full ref> — selects it.
+# Note that `:latest` MOVES while _builder.sh short-circuits on an image that is already local, so a
+# laptop keeps its cached toolchain after a publish here until someone runs a build with BUILDER_PULL=1.
+name: Builder image
+
+on:
+  push:
+    branches: [main]
+    paths: ['build/Dockerfile.builder', '.github/workflows/builder-image.yml']
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # `.github` is a framework-owned path, so this file is copied into every adopted repo by
+    # scripts/upgrade_dev_kit.sh, and into every fork. Only repos in the duplocloud org inherit the
+    # QUAY_* secrets and have push access to quay.io/duplocloud/duplo-extension-builder — anywhere else this
+    # job can only fail, and `workflow_dispatch` puts a permanently-red "Run workflow" button in front of
+    # people who never asked for one. So it no-ops instead. If you forked this and want your own builder
+    # image, change the repository here and the tags below to your registry.
+    #
+    # ⚠️ This name must track the repository's CURRENT full name. Renaming the repo makes the condition
+    # false, and a false job-level `if` is a SKIP: the run still appears, green, with zero steps and no
+    # explanation. That already happened once — the repo was `duplocloud/duplo-ai-extension-devkit` when
+    # this guard was written and is now `duplocloud/devkit`, so the publish silently stopped running and
+    # `:latest` was left stale at the last pre-rename build. After any rename, update this line and
+    # re-dispatch the workflow.
+    if: github.repository == 'duplocloud/devkit'
+    steps:
+      - uses: actions/checkout@v7
+      # QEMU emulates arm64 for the cross-build; buildx provides the multi-platform driver.
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      # Keep this step and its `with:` block adjacent. A dependabot merge once reordered these two `uses:`
+      # lines and left the credentials attached to setup-buildx-action, which silently ignores them —
+      # login-action then ran with no inputs and every publish died on "Username and password required".
+      - uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+      - uses: docker/build-push-action@v7
+        with:
+          # `build`, not `.`, to match how scripts/_builder.sh builds this same image locally: the
+          # Dockerfile COPYs nothing from the build context (only --from=node), so sending the whole
+          # repo — samples/, node_modules/, dist/ — to the builder would be pure upload cost. --file is
+          # resolved from the workspace root, so it keeps the build/ prefix.
+          context: build
+          file: build/Dockerfile.builder
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            quay.io/duplocloud/duplo-extension-builder:latest
+            quay.io/duplocloud/duplo-extension-builder:${{ github.sha }}

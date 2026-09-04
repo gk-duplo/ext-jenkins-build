@@ -1,0 +1,82 @@
+{
+  "manifestVersion": "1.0",
+  "id": "duplo.examples.parentchild",
+  "name": "Parent / Child",
+  "version": "0.1.0",
+
+  "sdkVersion": "REPLACED_BY_SKILL_FROM_sdk-version_ENDPOINT",
+  "backend": {
+    "assemblyDir": "duplo.examples.parentchild/0.1.0/backend",
+    "entryAssembly": "Duplo.Extension.ParentChild.dll"
+  },
+
+  "resources": [
+    {
+      "ticketOriginType": "HelloParent",
+      "restSegment": "extensions/hello-parents",
+      "subType": "hello-parent",
+      "archetype": "typed",
+      "registrar": "DevOpsResource",
+      "entityType": "Duplo.Extension.ParentChild.HelloParent",
+      "specType": "Duplo.Extension.ParentChild.HelloParentSpec",
+      "resultType": "Duplo.Extension.ParentChild.HelloParentResult",
+      "hooksType": "Duplo.Extension.ParentChild.HelloParentHooks",
+      "serviceType": "Duplo.Extension.ParentChild.HelloParentService"
+    },
+    {
+      "ticketOriginType": "HelloChild",
+      "restSegment": "hello-children",
+      "subType": "hello-child",
+      "archetype": "typed",
+      "registrar": "DevOpsResource",
+      "parent": {
+        "ticketOriginType": "HelloParent",
+        "routeSegment": "extensions/hello-parents",
+        "idRouteParam": "parentId"
+      },
+      "entityType": "Duplo.Extension.ParentChild.HelloChild",
+      "specType": "Duplo.Extension.ParentChild.HelloChildSpec",
+      "resultType": "Duplo.Extension.ParentChild.HelloChildResult",
+      "hooksType": "Duplo.Extension.ParentChild.HelloChildHooks",
+      "serviceType": "Duplo.Extension.ParentChild.HelloChildService"
+    }
+  ],
+
+  "skills": [
+    { "folder": "duplo.examples.parentchild/0.1.0/skills/provision-helloparent", "isBuiltIn": true },
+    { "folder": "duplo.examples.parentchild/0.1.0/skills/provision-hellochild", "isBuiltIn": true }
+  ],
+  "skillMappings": [
+    { "originType": "HelloParent", "subType": "hello-parent", "skillNames": ["provision-helloparent"], "timeout": { "provision": 300, "deprovision": 120 } },
+    { "originType": "HelloChild", "subType": "hello-child", "skillNames": ["provision-hellochild"], "timeout": { "provision": 300, "deprovision": 120 } }
+  ],
+
+  "frontend": {
+    "remote": {
+      "remoteName": "duploExtensionParentChild",
+      "remoteEntry": "/v1/aiservicedesk/extensions/duplo.examples.parentchild/fe/remoteEntry.json",
+      "exposedModule": "./Extension",
+      "type": "module"
+    },
+    "menus": [
+      {
+        "id": "duplo.examples.parentchild-devops",
+        "title": "DevOps",
+        "type": "collapsible-section",
+        "children": [
+          {
+            "id": "duplo.examples.parentchild-parent-child",
+            "title": "Parent / Child",
+            "type": "item",
+            "matIcon": "account-tree",
+            "relativeUrl": "extensions/hello-parents",
+            "order": 41
+          }
+        ]
+      }
+    ],
+    "routes": [
+      { "path": "extensions/hello-parents", "resourceType": "HelloParent", "subType": "hello-parent" }
+    ]
+  }
+}

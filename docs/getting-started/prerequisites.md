@@ -1,0 +1,96 @@
+# 0. Prerequisites
+
+**What you'll do:** Confirm you have what this kit needs — Docker with Compose v2, Python 3, LLM access,
+a verified email address, and five free ports.
+
+**What you need first:** Nothing. This is the first page.
+
+The dev kit runs the whole platform from published images. There is no *language* toolchain to install —
+no .NET, no Node: every container it starts, and every extension you later build, is built and run inside
+Docker. The two things that must exist on the host are Docker itself and `python3`, which the setup
+scripts use as their JSON and `.env` editor.
+
+---
+
+## 0.1 Docker, with Compose v2
+
+Docker Desktop, Colima, Rancher Desktop, or a plain Docker Engine all work. What matters is that the
+daemon is running and that `docker compose` (two words, the v2 plugin) exists.
+
+1. Check both at once.
+
+   ```bash
+   docker --version && docker compose version
+   ```
+
+   You should see:
+
+   ```
+   Docker version 29.6.1, build 8900f1d
+   Docker Compose version v5.2.0
+   ```
+
+   Any Compose `v2.x` or newer is fine. If the second line does not print, you have Compose v1 only and
+   need the v2 plugin.
+
+## 0.2 Python 3
+
+`run.sh` and everything under `scripts/` shell out to `python3` to rewrite `.env` safely (tokens and keys
+contain characters that break `sed`) and to read JSON out of the platform's API. Only the standard
+library is used — no `pip install`, no virtualenv, no version floor beyond "it is called `python3`".
+
+```bash
+python3 --version
+```
+
+macOS ships one with the Xcode command line tools (`xcode-select --install`) or `brew install python3`;
+Debian/Ubuntu, `sudo apt-get install -y python3`; RHEL/Amazon Linux, `sudo dnf install -y python3`.
+
+`./run.sh` checks for this and for Docker before it does anything else, and names whatever is missing.
+
+## 0.3 LLM access
+
+The agent needs a model to call. Pick one before you start — `./run.sh` asks for it and will not finish
+without LLM access. On an EC2 instance whose role can invoke Bedrock, `./run.sh` offers that role and no
+keys are needed.
+
+| Provider | What you need | Where `./run.sh` puts it |
+| --- | --- | --- |
+| **Anthropic** (simplest) | An API key, `sk-ant-…` | `ANTHROPIC_API_KEY` |
+| **AWS Bedrock** | `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` (+ `AWS_SESSION_TOKEN` if they are temporary), and a region with Claude enabled | `AWS_*` |
+
+Those two are the choices in `./run.sh`'s menu. Azure AI Foundry also works, but is configured by hand in
+`.env` rather than offered by the prompt. Precedence when more than one is set is
+`ANTHROPIC_API_KEY` → Azure → Bedrock — see
+[configuration.md](../configuration.md#llm-provider).
+
+## 0.4 An email address you can read
+
+Setup requires a **verified email address**. `./run.sh` asks for one, DuploCloud emails you a
+verification link, and the run waits for you to click it before carrying on. So:
+
+- **Use an address you can read right now.** The install blocks until that email arrives and you click
+  the link.
+- **Use a work address.** Personal domains are not accepted — you get
+  `Re-run with --email <work address> — personal domains are not accepted.` and a chance to retype.
+
+The same address becomes your portal login on the next page.
+
+## 0.5 Free ports
+
+The kit binds five host ports. They are deliberately offset from the platform's standard ports so this kit
+can run *alongside* a full local DuploCloud platform.
+
+| Port | Service |
+| --- | --- |
+| `4210` | Portal UI — `http://localhost:4210` |
+| `60031` | Studio API — `http://localhost:60031` |
+| `8010` | `claude-code-agent` |
+| `27018` | MongoDB |
+| `6061` | In-browser terminal (xterm) |
+
+If something on your machine already holds one of them, you do not need to free it — change the matching
+`*_PORT` in `.env` on the next page instead. The variables, and the trap in *blanking* one rather than
+changing it, are in [configuration.md](../configuration.md#host-ports).
+
+**Next:** [1. Install and sign in](install.md)

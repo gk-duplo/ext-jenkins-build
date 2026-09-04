@@ -1,0 +1,241 @@
+# SDK Reference — Base Classes
+
+Every type a platform extension subclasses, with its real members and when they run. Names/signatures
+are taken from the SDK source (paths cited per section). Namespaces:
+
+- `Duplo.Ai.Model.Resource` — `Entity`, `ResourceBase<,>`, `BaseSpec`, `BaseResult`, `ParentRefSpec<>`, `TicketContext`, `ResourceStatus`, `ProvisioningMode`, `WorkerState`
+- `Duplo.Ai.Model.Attributes` — `[BsonCollection]`
+- `Duplo.Ai.Model.Interfaces` — `IEntityHooks<>`, `DefaultEntityHooks<>`, `IEntityService<>`
+- `Duplo.Ai.DataManagement.Interfaces` — `IRepository<>`
+- `Duplo.Ai.DataManagement.Services` — `GenericService<>`, `ResourceServiceBase<,,>`
+- `Duplo.Ai.DataManagement.Controllers.User.Resource` — `ResourcesController<,,>`, `ChildResourceController<,,,>`
+
+> A typed extension compiles against these from the SDK NuGet feed (`ExcludeAssets=runtime`); at load the
+> host's Default ALC supplies the real assemblies, so your subclasses share type identity with the host.
+> See [06-registration.md](06-registration.md).
+
+---
+
+## 1. Entity model (`Duplo.Ai.Model/Duplo.Ai.Model/DataContracts/`)
+
+### `Entity` (`Entity.cs`) — base of everything persisted
+| Member | Purpose |
+|---|---|
+| `string Id` `[BsonId]` | Unique id (Mongo ObjectId string). |
+| `string Name` `[BsonRequired]` | Entity name. Uniqueness is enforced per scope by the service. |
+| `string? Description` | Free-form description. |
+| `DateTime CreatedAt / UpdatedAt` | Stamped by the repository. |
+| `bool IsActive` | Soft-delete flag. |
+| `long Version` | Optimistic-concurrency token; incremented per write. |
+| `Dictionary<string,string>? MetaData` | Arbitrary key/values. |
+| `string GetMetaDataValue(string key)` | Reads a MetaData value (""/empty if absent). |
+| `virtual IReadOnlyList<GroupingAttribute> GetGroupingAttributes()` | Natural grouping (workspace/RG/…); used by workers/aggregators. |
+| `virtual void CleanupBeforeSave()` | Override to sanitize before every create/update. Called by `DefaultEntityHooks.OnPre{Create,Update}`. |
+
+### `ResourceBase<TSpec,TResult>` (`Resource/ResourceBase.cs:164`) — base of every provisionable resource
+`public abstract class ResourceBase<TSpec,TResult> : Entity, IResource where TSpec : BaseSpec where TResult : BaseResult`
+
+| Member | Purpose |
+|---|---|
+| `string? OwnerWorkspaceId` | Owning workspace (tenant). Immutable after create (enforced by `ResourceHooksBase`). |
+| `List<string> AllowedWorkspaceIds` | Cross-workspace read sharing. |
+| `ResourceStatus Status` | Lifecycle state (see enum below). |
+| `bool EverCompleted` | One-way latch: true once `Complete` is reached. |
+| `string? BlockedReason` | Set when `Status == Blocked`. |
+| `string? DeprovisionMessage` | Why a deprovision failed. |
+| `string? SubStatus` | Free-form live progress text (the agent sets this). |
+| `TicketContext? TicketContext` | Link to the provisioning ticket (id + last-triggered + detailed status). |
+| `bool ProvisionedByHelpdesk` | True when provisioned synchronously by the backend (no agent ticket). |
+| `Guid SpecVersion` | Fresh GUID on every spec-changing write (drift/worker signal). |
+| `WorkerState? WorkerState` | Worker-mode retry/backoff state (null otherwise). |
+| `ProvisioningMode? ProvisionedMode` | The mode chosen at create; immutable for the row's life. |
+| `TSpec? Spec` / `TResult? Result` | Your strongly-typed inputs/outputs. |
+| `abstract string GetTicketOriginType()` | **You implement.** Origin type (e.g. `"HelloWorld"`); drives skill-mapping + ticket origin. |
+| `abstract string GetTicketOriginSubType()` | **You implement.** Sub-type (e.g. `"hello-world"`). |
+| `override GetGroupingAttributes()` | Appends `("Workspace", OwnerWorkspaceId)`. |
+
+> Tag your entity with `[BsonCollection("extension_<plural>")]` to give it its own Mongo collection.
+
+### `BaseSpec` (`Resource/ResourceBase.cs:407`) — base of every spec
+| Member | Purpose |
+|---|---|
+| `List<string>? ScopeIds` | Cloud scopes whose credentials the agent/provisioner gets (`platform_context.scopes`). |
+| `ResourceMode Mode` (`Create`\|`Import`, default `Create`) | Create vs import-existing. Import resources skip teardown on delete. |
+| `Provisioner? Provisioner` | Provisioner config (defaults to CLI). |
+| `SpecTicketContext? TicketContext` | Carries `SkillIds` for manual ticket creation. |
+| `BsonDocument? AdditionalCustomSpec` | Escape hatch for extra config. |
+
+Add your own input fields as plain properties (e.g. `public string? FirstName { get; set; }`).
+
+### `BaseResult` (`Resource/ResourceBase.cs:381`) — base of every result
+| Member | Purpose |
+|---|---|
+| `List<string>? Warnings` / `List<string>? Faults` | Surfaced in the UI / fault pipeline. |
+| `BsonDocument? ExtraConfigs` | Implementation-only metadata (e.g. CFN stack id); not rendered. |
+
+Add your own output fields as plain properties (e.g. `public string? FullName { get; set; }`).
+
+> **Always annotate every concrete entity/`Spec`/`Result` with `[BsonIgnoreExtraElements]`** (on the concrete
+> class — inheriting from `BaseSpec`/`BaseResult` is not enough). Two reasons: **(1) schema evolution** — old
+> Mongo docs that still carry removed fields would otherwise throw on read; **(2) write-side drop** — the
+> agent's `POST {id}/results` / `{id}/status` JSON is deserialized into your typed class, and any key that
+> doesn't map to a declared `[BsonElement]` property is **silently discarded**. A name mismatch between an
+> agent/terraform output and your property therefore *loses the value* (e.g. terraform output `environment_id`
+> → `environmentId` never persisted because the Result declared `cloudServicesEnvironmentId` instead). Make the
+> annotation a default on every extension class. See [12-enrichment-and-live-state](12-enrichment-and-live-state.md).
+
+### `ParentRefSpec<TParent>` (`Resource/ParentRefSpec.cs`) — spec for a child resource
+`public abstract class ParentRefSpec<TParent> : BaseSpec where TParent : Entity` — adds `string? ParentId`
+(stamped from the nested route, immutable). Use with `ChildResourceController<>`.
+
+### Enums & helper types
+- **`ResourceStatus`** (`ResourceBase.cs:560`): `New, Updated, TicketCreated, Processing, Complete, Failed, Blocked, WaitingForApproval, DeProvisioning, DeProvisioned, DeprovisionInitiated, DeprovisionFailed`.
+- **`ProvisioningMode`** (`ProvisioningMode.cs`): `Passthrough, Worker, HelpdeskAgent`.
+- **`ResourceMode`**: `Create, Import`.
+- **`TicketContext`** (`ResourceBase.cs:487`): `string? TicketId`, `DateTime? LastTriggeredTime`, `string? DetailedStatus`.
+- **`ResourceStatusUpdate`** (`ResourceBase.cs:449`): the `POST {id}/status` body — `Status`, `SubStatus`, `BlockedReason`, `Warnings`, `Faults`.
+- **`WorkerState`** (`WorkerState.cs`): `RetryCount`, `LastAttemptAt`, `NextAttemptAt`, `LastVerifiedAt`, `LastFailedCode`.
+
+> **DevOps / ResourceGroup-scoped variants** (in `Duplo.Ai.Model.DevOps`, used by first-party env-child
+> resources like `Namespace`): `ResourceGroupRef<TSpec,TResult>` (entity base), `ResourceGroupSpecRef`
+> (spec base — adds `EnvironmentId` + `ResourceGroupId`). Origin types come from the
+> `DevOpsTicketOriginTypes` string constants, not an enum. Extensions typically subclass `ResourceBase`
+> directly; use the RG variants only for resources that live under a Resource Group.
+
+---
+
+## 2. Services (`Duplo.Ai.DataManagement/Duplo.Ai.DataManagement/Services/`)
+
+### `GenericService<T>` (`GenericService.cs`) — generic CRUD + lifecycle hooks
+`public abstract class GenericService<T> : IEntityService<T> where T : Entity`. Ctor:
+`GenericService(IRepository<T> repository, ILogger logger)`.
+
+**Read:** `GetByIdAsync`, `GetByIdOrThrowAsync`, `GetAllAsync`, `GetActiveAsync`, `GetPagedAsync`,
+`FindAsync`, `CountAsync`, `ExistsAsync`, `GetMetadataAsync`.
+**Write:** `CreateAsync`, `CreateManyAsync`, `UpdateAsync`, `DeleteAsync` → `Task<bool>`,
+`SoftDeleteAsync` → `Task<bool>`, `PatchAsync`, `PatchManyAsync`, `CreateOrUpdateMetadataAsync`,
+`DeleteMetadataAsync`. (All `virtual`.)
+**Hooks (`protected virtual`, override these):** `ValidateAsync(T, bool isUpdate, ct, T? existingEntity)`,
+`ValidateNameImmutability`, `OnBeforeCreateAsync`/`OnAfterCreateAsync`,
+`OnBeforeUpdateAsync(existing, updated, ct)`/`OnAfterUpdateAsync(existing, updated, ct)`,
+`OnBeforeDeleteAsync`/`OnAfterDeleteAsync`, `OnBeforeSoftDeleteAsync`/`OnAfterSoftDeleteAsync`,
+`OnBeforePatchAsync`/`OnAfterPatchAsync`, and `bool LowercaseEntityName` (default `true`).
+See [04-hooks.md](04-hooks.md) for firing order.
+
+### `ResourceServiceBase<TResource,TSpec,TResult>` (`ResourceServiceBase.cs`) — the one you subclass
+`: GenericService<TResource>, IResourceService<...>` with
+`where TResource : ResourceBase<TSpec,TResult> where TSpec : BaseSpec where TResult : BaseResult, new()`.
+Ctor (match it exactly):
+```csharp
+protected ResourceServiceBase(
+    IRepository<TResource> repository,
+    ILogger<MyService> logger,
+    IServiceScopeFactory scopeFactory,
+    IHttpContextAccessor httpContextAccessor)
+```
+It overrides `CreateAsync`/`UpdateAsync`/`GetByIdAsync` to run the full resource lifecycle (validation →
+locks → provisioning-mode dispatch → ticket creation). You normally override only the seams below; the
+base does the heavy lifting (most extensions override nothing and get agent-based provisioning for free).
+
+**Validation & external I/O (`protected virtual`):**
+| Member | When it runs / purpose |
+|---|---|
+| `ValidateSpecAsync(TSpec spec, bool isUpdate, TSpec? existingSpec, ct)` | Validate your spec fields (CIDR, region, …). |
+| `ValidateAsync(TResource, bool isUpdate, ct, TResource? existing)` | Entity-level rules (name format, etc.); call `base` first. |
+| `ValidateNameFormat(string?)` / `ValidateName(TResource, ct)` | Name format + uniqueness (workspace-scoped by default). |
+| `ResolveAndValidateExternalAsync(entity, isUpdate, existing, ct)` | **Pre-lock** seam for cloud SDK / HTTP / DNS calls; may stamp fields on the entity. |
+| `PrepareEntityForPersistenceAsync(entity, ct)` | Last chance before DB write (mask/sanitize secrets). |
+
+**Provisioning (`protected virtual`):**
+| Member | Purpose |
+|---|---|
+| `ProvisioningMode NoSkillsFallbackMode` (default `Passthrough`) | Mode when no skill is mapped. Return `Worker` for background reconcile. |
+| `ProvisionDirectAsync(entity, ct)` | Passthrough create: do the work inline; set `Status=Complete` + populate `Result`. |
+| `UpdateDirectAsync(entity, ct)` | Passthrough update. |
+| `DeprovisionDirectAsync(entity, ct)` | Passthrough teardown; patch to `DeProvisioned`. |
+| `string? GetProvisioningMessage(entity)` | The initial chat message the agent receives. |
+| `bool IsProvisioningNeeded(entity)` (default `true`) | Skip provisioning for some instances. |
+| `ResolveParentSkillIdsAsync(entity, ct)` | Inject skill ids for manual tickets. |
+
+**Status/result + reactions (`public`/`protected virtual`):**
+| Member | Purpose |
+|---|---|
+| `UpdateStatusAsync(ws, id, ResourceStatusUpdate, ct)` | Backs `POST {id}/status`. Auto-deletes if `DeProvisioned` and `AutoDeleteOnDeProvision` is true. |
+| `UpdateResultAsync(ws, id, JsonObject, ct)` | Backs `POST {id}/results`. |
+| `OnAfterStatusUpdateAsync(entity, ct)` | React to status transitions (e.g. unload on `DeProvisioned`). |
+| `OnAfterResultUpdateAsync(entity, ct)` | React to results (e.g. create dependent resources). |
+| `EnrichResultAsync(entity, ct)` | Runs on `GetByIdAsync` — inject **live, non-persisted** data (cloud detail). |
+| `GetExpandedSpecForAgentAsync(resource, ct)` | The spec JSON written to `shared/<subtype>.json` for the agent; override to enrich. |
+| `bool AutoDeleteOnDeProvision(entity)` | Hard-delete the row on `DeProvisioned`? (default: true for non-Worker.) |
+
+**Deprovision / reconcile / faults (`public virtual`):** `ValidateCanDeprovisionAsync`, `DeprovisionAsync`,
+`ForceReconcileAsync` (Worker), `CreateTicketAsync`, `ReconcileAndRaiseFaults(IFaultStore, ct)`.
+**Helper:** `FireInBackground(entity, Func<sp, entity, baseUrl, token, Task>)` — fire-and-forget outside the request scope.
+
+---
+
+## 3. Controllers (`Duplo.Ai.DataManagement/.../Controllers/`)
+
+Subclass and add only the `[Route]`. Endpoints are inherited — you write **no** CRUD code.
+
+### `ResourcesController<T,TSpec,TResult>` (`User/Resource/ResourcesController.cs`)
+`[Route("v1/aiservicedesk/user/data/workspaces/{workspaceId}/environment/[controller]")]`
+Ctor: `(IEntityService<T> service, ILogger<MyController> logger)`. Endpoints:
+
+| Verb · Route | Purpose |
+|---|---|
+| `GET ` | List (paged/filtered, workspace-scoped). |
+| `GET {id}` | Get one. |
+| `POST ` | Create (stamps `OwnerWorkspaceId` from route). |
+| `PUT {id}` / `PATCH {id}` | Update / partial update. |
+| `POST {id}/results` | Write `Result` (used by the provisioning agent). |
+| `POST {id}/status` | Write `Status`/`SubStatus`/faults (used by the agent). |
+| `DELETE {id}` | Hard delete (gated by `ResourceHooksBase` deletable statuses). |
+| `GET {id}/can-deprovision` | Pre-check. |
+| `POST {id}/deprovision` | Start deprovision (mode-dependent). |
+| `POST {id}/reconcile` | Worker-mode force reconcile. |
+| `POST {id}/ticket` · `GET {id}/ticket-status` | Manual ticket create / status (the backend path for on-demand tickets — see [16-ask-ai](16-ask-ai.md) §9). |
+| `GET view-template` | Serves the resource's view-template JSON (see [05-custom-actions.md](05-custom-actions.md)). |
+
+> `GenericServiceController<T>` is the non-resource base (CRUD + `bulk`, `{id}/soft-delete`,
+> `{id}/metadata`). `ResourcesController` derives from it.
+
+### `ChildResourceController<TChild,TParent,TSpec,TResult>` (`User/Resource/ChildResourceController.cs`)
+For resources nested under a parent. Ctor adds `IEntityService<TParent> parentService`. Declare your own
+`[HttpPost("~/…/{parentId}/[controller]")]` action and call the protected
+`CreateUnderParentAsync(parentId, child, ct)` (validates the parent, stamps `ParentId`).
+
+### `ResourceGroupControllerRef<T,TSpec,TResult>` (DevOps; for RG-scoped resources)
+Routes nested under `…/environments/{envId}/resource-groups/{rgId}/[controller]`; stamps
+`EnvironmentId`/`ResourceGroupId`. Use only for env-child resources.
+
+---
+
+## Minimal typed resource (what a extension ships)
+```csharp
+[BsonIgnoreExtraElements]   // on every concrete Spec/Result/entity — see the rule above
+public class HelloWorldSpec   : BaseSpec   { public string? FirstName { get; set; } public string? LastName { get; set; } }
+[BsonIgnoreExtraElements]
+public class HelloWorldResult : BaseResult { public string? FullName  { get; set; } }
+
+[BsonCollection("extension_helloworlds")]
+[BsonIgnoreExtraElements]
+public class HelloWorld : ResourceBase<HelloWorldSpec, HelloWorldResult> {
+    public override string GetTicketOriginType()    => "HelloWorld";
+    public override string GetTicketOriginSubType() => "hello-world";
+}
+public class HelloWorldHooks   : DefaultEntityHooks<HelloWorld> { }          // or ResourceHooksBase for invariants
+public class HelloWorldService : ResourceServiceBase<HelloWorld, HelloWorldSpec, HelloWorldResult> {
+    public HelloWorldService(IRepository<HelloWorld> repo, ILogger<HelloWorldService> log,
+        IServiceScopeFactory sf, IHttpContextAccessor http) : base(repo, log, sf, http) { }
+}
+
+[ApiController]
+[Route("v1/aiservicedesk/user/data/workspaces/{workspaceId}/environment/helloworlds")]
+public class HelloWorldsController : ResourcesController<HelloWorld, HelloWorldSpec, HelloWorldResult> {
+    public HelloWorldsController(IEntityService<HelloWorld> svc, ILogger<HelloWorldsController> log) : base(svc, log) { }
+}
+```
+That's a full first-class resource: CRUD + status/results + provisioning lifecycle, no boilerplate.
+Provisioning behavior comes from the skill mapped to `HelloWorld/hello-world` — see
+[01-architecture.md](01-architecture.md) and [04-hooks.md](04-hooks.md).

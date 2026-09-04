@@ -1,0 +1,233 @@
+# Configuration
+
+Everything the dev kit reads comes from `.env` in the repo root. Copy it from `.env.example` once
+(`cp .env.example .env`); `./run.sh` fills in most of the rest on first run.
+
+> **🔒 `.env` holds live secrets.** An LLM API key, your admin password, and a never-expiring admin API
+> token. It is gitignored and must never be committed or pasted into an issue. See
+> [SUPPORT.md](../SUPPORT.md) before sharing any output.
+
+- [How `.env` is maintained](#how-env-is-maintained)
+- [Licensing](#licensing)
+- [Image tags](#image-tags)
+- [Host ports](#host-ports)
+- [Build and deploy target](#build-and-deploy-target)
+- [Authentication and platform](#authentication-and-platform)
+- [LLM provider](#llm-provider)
+- [Created by `run.sh`](#created-by-runsh)
+
+## How `.env` is maintained
+
+You normally do not hand-edit most of this file. `./run.sh` prompts for the email, password, and LLM
+provider on first run and writes the rest.
+
+Framework-shipped defaults — the image tags, the studio platform, and the license server URL — live in
+`.env.example` and change when you upgrade the dev kit. On every run, `run.sh` adopts a changed default into
+your `.env` **only if you have not diverged from the previously-applied default**. A tag you pinned is always
+kept. The mechanism is described in [upgrading.md](upgrading.md#how-defaults-are-adopted).
+
+## Licensing
+
+The dev kit is licensed, and the studio will not serve without a license. `run.sh` handles this on first
+run: it requests a **trial license** for your admin email (the company is derived from the address's domain),
+DuploCloud emails that address a verification link, and the run waits up to 2 minutes for you to click it
+before picking the license up and writing it to `Licensing__Token`.
+
+Use a **work address** — the license server rejects personal domains — and note that it issues exactly
+**one license per email address**. There is no second trial for the same address, so `run.sh` is built to
+never need one: a license it already has is reused, an interrupted verification resumes, and an address the
+server already knows is **recovered** (the server emails a confirmation link that releases the same license
+to this dev kit) rather than re-requested.
+
+The license server itself is not a `.env` key. `run.sh` and the studio each default to
+`https://console.duplocloud.com` on their own, so `.env.example` ships neither `LICENSE_API_URL` nor
+`Licensing__ConsoleUrl`. Add `LICENSE_API_URL` to `.env` by hand if DuploCloud tells you to point somewhere
+else — nothing writes or adopts that key, so your value stays put.
+
+| Variable | Default in `.env.example` | Effect |
+| --- | --- | --- |
+| `Licensing__Token` | *(blank — `run.sh` fetches it)* | The license JWT, read by the studio as `Licensing:Token`. Blanking just this line is safe: the next run pulls the same license back down using the ids below. |
+| `LICENSE_TRIAL_UUID` | *(blank)* | The id of the trial request made for your address. `run.sh` polls it for the license and keeps it afterwards as the handle for re-fetching that same license. |
+| `LICENSE_RECOVERY_UUID` | *(blank)* | Set when your address already had a license and `run.sh` recovered it: the id of that recovery. A link you click after the script stops waiting still lands, because a later run resumes from this id. |
+| `LICENSE_REQUEST_EMAIL` | *(blank)* | The address the two ids above were requested for. Give `run.sh` a different admin email and it discards those ids rather than polling them — an id can only ever verify the one address, so this is how a mistyped email is recovered from. |
+
+Both `run.sh --reset` and `./stop.sh --wipe` leave the license alone — it is not stack state. Only
+`--reset-license` clears it, and it prints the JWT to stderr first because the server will not re-issue it.
+
+If you already hold a license JWT, skip the whole flow with `./run.sh --license <jwt>`. Pass the bare token,
+with no surrounding quotes or line breaks: it is validated exactly as given, because it is stored exactly as
+given.
+
+## Image tags
+
+Pin the published images the stack runs.
+
+| Variable | Default in `.env.example` | Effect |
+| --- | --- | --- |
+| `STUDIO_TAG` | `branch-refs-pull-271-merge-ca7a003c` | The AI HelpDesk studio image (the platform API). Format is `branch-<sanitized-branch>-<short-sha>`. Pinned to a build that enforces `Licensing:Token` — do not roll it back to a pre-licensing tag. |
+| `AGENT_TAG` | `branch-feature-plugin-c47ade5` | The `claude-code-agent` image that executes provisioning tickets. |
+| `UI_TAG` | `db2523ba52a227c540fb8e4fe7eb9fcf8027e4ad` | The Angular portal image. A `duplo-ui` git SHA, pinned to a build that renders the license state. |
+| `XTERM_TAG` | `main-d323e0b` | The in-browser terminal image. |
+| `STUDIO_PLATFORM` | `linux/amd64` | Docker platform for the studio image. On Apple Silicon the studio image is amd64-only and runs emulated. Leave as-is unless you have an arm64 image. |
+
+`STUDIO_TAG` and `UI_TAG` are required — `run.sh` exits if either is empty:
+
+```
+  .env: STUDIO_TAG is not set (pass --studio-tag or set in .env).
+```
+
+All three application tags can also be set per run with `--studio-tag`, `--ui-tag`, and `--agent-tag`.
+Doing so pins them: they stop tracking `.env.example`.
+
+## Host ports
+
+Offset from the platform's standard ports (60021 / 4200 / 8000 / 27017 / 6060) so this dev kit can run
+**alongside** a local DuploCloud platform stack without clashing.
+
+| Variable | Default | Service |
+| --- | --- | --- |
+| `STUDIO_PORT` | `60031` | Studio API — `http://localhost:60031` |
+| `UI_PORT` | `4210` | Portal UI — `http://localhost:4210` |
+| `AGENT_PORT` | `8010` | `claude-code-agent` |
+| `MONGO_PORT` | `27018` | MongoDB |
+| `XTERM_PORT` | `6061` | In-browser terminal |
+
+Change any of these if they still collide with something on your machine, then re-run `./run.sh`.
+
+> **Keep them set.** `docker-compose.yml` and `run.sh` fall back to the *unoffset* platform defaults when a
+> `*_PORT` is unset — for example `UI_PORT` falls back to 4200, not 4210. Blanking a port does not mean
+> "use the dev-kit default"; it means "use the platform default". If a port is in use, see
+> [troubleshooting.md](troubleshooting.md#a-port-is-already-in-use).
+
+## Build and deploy target
+
+Where `/duplo-extension` and everything in `scripts/` builds and deploys to. Resolved by
+`scripts/_target.sh`.
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `DUPLO_TARGET` | `local` | `local` uses this dev-kit stack at `localhost:$STUDIO_PORT`, authenticated with `DUPLO_ADMIN_TOKEN`. `remote` targets an existing DuploCloud platform. |
+| `DUPLO_HOST` | *(empty)* | **Remote only, required.** The AI HelpDesk studio base URL — the host serving `/v1/aiservicedesk`. Use https, with no trailing path. |
+| `DUPLO_TOKEN` | *(empty)* | **Remote only, required.** An Administrator bearer token for that platform. |
+| `DUPLO_WORKSPACE_ID` | *(empty)* | Remote only. The workspace to author against. If blank, `/duplo-extension` lists the remote's workspaces and asks. |
+
+With `DUPLO_TARGET=remote`, a missing value fails fast:
+
+```
+DUPLO_TARGET=remote but DUPLO_HOST is unset in .env.
+DUPLO_TARGET=remote but DUPLO_TOKEN is unset in .env.
+```
+
+Real environment variables win over the file, so CI can supply `DUPLO_HOST` and `DUPLO_TOKEN` as secrets
+with no `.env` present at all. `DUPLO_ENV_FILE=<path>` points the scripts at a different env file, and
+`DUPLO_BASE` forces the base URL outright.
+
+## Authentication and platform
+
+Managed by `./run.sh` — leave them blank in a fresh `.env` and let it prompt.
+
+| Variable | Effect |
+| --- | --- |
+| `Authentication__LocalAdminEmail` | Your UI login. Must also appear in `Authentication__SuperUsers` to get the Administrator role — `run.sh` sets both. |
+| `Authentication__LocalAdminPassword` | Your UI password. |
+| `Authentication__SuperUsers` | Comma-separated superuser emails. |
+| `Authentication__FrontendBaseUrl` | Defaults to `http://localhost:$UI_PORT`. |
+| `Authentication__JwtSharedSecret` | Generated once (`openssl rand -hex 32`). Regenerated only on `--reset`. |
+| `Encryption__MasterKey` | Generated once (`openssl rand -base64 96`). Regenerated only on `--reset`. |
+| `AIStudio__IsMasterDisabled` | `true`. Required for standalone operation with no DuploCloud master. |
+| `AIStudio__DevKitMode` | `true`. Dev-kit only: exposes the per-extension **Clean Database** admin action, which drops one extension's data collections. |
+
+## LLM provider
+
+`run.sh` sets these from your `--model` choice. Precedence is `ANTHROPIC_API_KEY` → Azure → Bedrock.
+
+| Variable | Effect |
+| --- | --- |
+| `DEVKIT_MODEL` | `anthropic`, `bedrock`, or `bedrock-instance-role`. Chooses which credential block below is used. |
+| `CLAUDE_MODEL` | The model id the agent calls. `claude-sonnet-4-6` for Anthropic; `us.anthropic.claude-sonnet-4-6` for either Bedrock mode. Not interchangeable — the direct Anthropic API rejects the `us.*` prefix and Bedrock requires it. |
+| `ANTHROPIC_API_KEY` | Direct Anthropic API key. |
+| `AWS_REGION` | Bedrock region (default `us-west-2`). Set to `us-east-1` even on an Anthropic setup — the agent's title LLM is Bedrock-only, and a valid region stops its client crash-looping on a malformed endpoint. With no AWS credentials the title call simply no-ops and titles are not generated. Under `bedrock-instance-role` this is the **only** AWS value stored, and blanking it forces a re-probe on the next run. |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` | Bedrock credentials. Left blank under `bedrock-instance-role`, deliberately: empty-but-present values do not short-circuit the agent's credential chain, so it falls through to IMDS and picks up the instance role. |
+| `AZURE_BASE_URL`, `AZURE_API_KEY`, `AZURE_CLIENT_ID` | Azure AI Foundry, if you use it instead. |
+
+Switching provider does **not** clear the previous provider's credentials — only `./run.sh --reset` does.
+Because the precedence above is fixed, a leftover `ANTHROPIC_API_KEY` silently wins over Bedrock; choosing
+`bedrock` warns when it finds one still set. The one exception is `bedrock-instance-role`, which blanks the
+static AWS keys and `ANTHROPIC_API_KEY`: there it is load-bearing rather than hygiene, since anything left
+in those wins the chain and the instance role would never be consulted.
+
+`run.sh` also runs `scripts/register-llm.sh` on every provider. The studio ships no LLM model records of
+its own, so on a fresh DB the ticket LLM picker has nothing to offer; this registers whatever `CLAUDE_MODEL`
+resolved to and makes it the sole System default.
+
+### Bedrock via the EC2 instance role
+
+On an EC2 host, `run.sh` offers a third, keyless provider when it can prove the instance role works.
+`scripts/detect-bedrock.sh` makes a real 1-token Converse call against `CLAUDE_MODEL` — so success means
+invoke permission on the exact model the agent will call, not just "some" Bedrock access — and separately
+checks that a container can reach IMDS.
+
+The probe needs only `python3` and `curl` — SigV4 is signed with the standard library, so no AWS CLI or
+boto3 is required. The container check uses `busybox:1.36`, pulling it if it is not local yet (it runs before
+`docker compose pull`, so on a fresh instance it usually isn't).
+
+The container check reports three distinct outcomes, and only one of them withholds the option:
+
+| `CONTAINER_IMDS` | Meaning | Effect |
+| --- | --- | --- |
+| `ok` | A container reached IMDS. | Offered normally. |
+| `blocked` | The test ran and failed — the IMDSv2 PUT-response hop limit of 1. | **Withheld.** The stack would start and then fail on every turn. |
+| `unknown:<why>` | The test could not run: Docker not installed, daemon unreachable, or `busybox:1.36` unobtainable. | Offered, flagged unverified. |
+
+The distinction matters: an unverifiable check is not evidence of a problem, and treating it as one would hide
+a working keyless option behind advice to raise a hop limit that was never the cause. When it really is the
+hop limit, raise it with:
+
+```bash
+aws ec2 modify-instance-metadata-options --instance-id <id> --http-put-response-hop-limit 2
+```
+
+At the interactive prompt a failed probe is non-fatal — it explains why and falls back to the key-based
+options. Passing `--model bedrock-instance-role` directly is fatal on failure, since you asked for it —
+except for `unknown:<why>`, which warns and proceeds.
+
+## Created by `run.sh`
+
+Written on first run. You should not need to set these by hand.
+
+| Variable | Effect |
+| --- | --- |
+| `DUPLO_ADMIN_TOKEN` | A never-expiring admin API token, minted by logging in as the admin user. Every script uses it when `DUPLO_TARGET=local`. |
+| `EXTENSION_DEV_WORKSPACE_ID` | The auto-created `extension-dev` workspace. |
+| `EXTENSION_DEV_PERMSET_ID` | The `extension-dev-access` permission set granting that workspace. |
+| `EXTENSION_DEV_PERMSETGROUP_ID` | The `extension-dev-group` assigning your admin user to that permission set. |
+
+The permission set and group exist because the UI's accessible-workspace list is permission-set based with
+no superuser bypass. Without them, login lands on `/app/auth/no-tenant-access` even though the admin token
+works against the API.
+
+## Usage metrics
+
+The portal sends product usage metrics to DuploCloud via Mixpanel, tied to the email you sign in with.
+[PRIVACY.md](../PRIVACY.md) lists exactly what is and is not collected.
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `DUPLO_USAGE_METRICS` | *(blank — `run.sh` prompts on first run)* | `1` opted in, `0` opted out. Ships blank so a first run actually asks. |
+| `METRICS_CONF` | *(derived)* | The nginx fragment implementing the choice — `metrics-on.conf` or `metrics-off.conf`. **Do not hand-edit; changing it alone does nothing.** `run.sh` re-derives it from `DUPLO_USAGE_METRICS` on every run. |
+
+`./run.sh` prompts on first run and the default is opted **in**. Non-interactively, use `--no-metrics` or
+`--metrics`; with no TTY the default applies silently rather than blocking.
+
+**To change your mind:** set `DUPLO_USAGE_METRICS` to `0` or `1`, re-run `./run.sh`, and reload any open UI
+tab — a tab already loaded keeps using the JavaScript it fetched before the change.
+
+The opt-out is enforced at the proxy, not by trusting the UI. The Mixpanel key is compiled into the
+published image's Angular bundle at build time, so `run.sh` mounts an nginx config that rewrites the served
+bundle. Opted out, the key never reaches your browser and the analytics library is never initialized.
+
+### `.env.defaults`
+
+A gitignored bookkeeping file, rewritten by `run.sh` on every run. It records the framework defaults last
+applied so `run.sh` can distinguish "you changed this" from "the default changed". It is not configuration
+— see [upgrading.md](upgrading.md#how-defaults-are-adopted).

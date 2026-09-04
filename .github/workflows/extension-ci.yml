@@ -1,0 +1,83 @@
+# Builds (and deploys) EVERY extension in this repo — one per extensions/<name>/ — using the dev-kit scripts.
+#
+# This file ships with the dev-kit. After `scripts/init-project.sh` makes the repo yours, set these repo secrets:
+#   DUPLO_HOST   — your platform base URL (e.g. https://portal.example.duplocloud.net)
+#   DUPLO_TOKEN  — an Administrator bearer token for that platform
+# The build fetches the host SDK feed from DUPLO_HOST (so it must be reachable from CI — a public DuploCloud,
+# not localhost). Deploy (hot-load) runs on push to main, and on a manual run with deploy=true. PRs build only.
+#
+# The build itself runs in the toolchain container that scripts/build-all.sh starts (no setup-dotnet /
+# setup-node here — CI and a laptop build with one pinned toolchain). To pull that image instead of
+# building it, the org secrets QUAY_USERNAME / QUAY_PASSWORD are used — every repo in the duplocloud org
+# inherits them. A fork inherits neither, so there the pull fails and scripts/_builder.sh falls back to
+# building build/Dockerfile.builder locally: CI still works, it just spends ~2 min on the image.
+name: Extension CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Hot-load the built bundles onto the platform after building"
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      DUPLO_TARGET: remote
+      DUPLO_HOST: ${{ secrets.DUPLO_HOST }}
+      DUPLO_TOKEN: ${{ secrets.DUPLO_TOKEN }}
+      # Lifted to env so the login step can gate on its presence: the `secrets` context is not available
+      # in an `if:` expression, but `env` is. A fork PR gets no org secrets, so this is empty there.
+      QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Discover extensions
+        id: guard
+        run: |
+          shopt -s nullglob
+          # -f each candidate: nullglob drops the two wildcard patterns when they match nothing, but
+          # `extension/manifest.json` has no wildcard and survives as a literal, so a bare ${#dirs[@]}
+          # was always >= 1 and this guard never once reported "nothing to build".
+          dirs=(); for m in extensions/*/manifest.json extension/*/manifest.json extension/manifest.json; do
+            [ -f "$m" ] && dirs+=("$m")
+          done
+          if [ ${#dirs[@]} -gt 0 ]; then echo "build=true" >> "$GITHUB_OUTPUT"
+          else echo "build=false" >> "$GITHUB_OUTPUT"; echo "::notice::No extensions/*/manifest.json — nothing to build."; fi
+
+      # Gated on the credential being present: a fork PR inherits none of the org secrets, and failing the
+      # login there would cost the run its build step for no reason — the pull just falls back to a local
+      # image build. See the env: block above for why this reads env rather than secrets.
+      - name: Log in to quay.io (for the builder image)
+        if: steps.guard.outputs.build == 'true' && env.QUAY_USERNAME != ''
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+
+      - name: Build all extensions
+        if: steps.guard.outputs.build == 'true'
+        run: ./scripts/build-all.sh
+
+      - name: Upload bundles
+        if: steps.guard.outputs.build == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: extension-bundles
+          path: |
+            extensions/*/dist/extension.zip
+            extension/*/dist/extension.zip
+            extension/dist/extension.zip
+
+      # Deploy on push to main (auto) or a manual run with deploy=true. PRs build only.
+      - name: Deploy all extensions (hot-load to DuploCloud)
+        if: >
+          steps.guard.outputs.build == 'true' &&
+          (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy))
+        run: ./scripts/deploy-all.sh

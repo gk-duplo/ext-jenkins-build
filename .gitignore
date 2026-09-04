@@ -1,0 +1,33 @@
+# Local config & secrets — NEVER commit
+.env*
+!.env.example
+
+# Build artifacts & dependencies
+**/bin/
+**/obj/
+**/node_modules/
+**/.angular/
+**/dist/
+# Vendored SDK packages fetched at build time from the running platform
+**/backend/sdk-packages/
+*.tgz
+*.zip
+!packages/*.tgz
+!.claude/skills/duplo-extension-dev/templates/helloworld/frontend/vendor/*.tgz
+
+# The Terraform extension's source, vendored by run.sh (scripts/fetch-terraform-extension.sh).
+# It is fetched, not authored here, so it does not belong in this repo's history — and without this
+# line every adopter's `git status` is a few hundred untracked files. If you modify it and want to
+# keep the change in YOUR repo, delete this line and commit it.
+extensions/terraform/
+
+# Internal engineering plans — design docs and implementation plans stay local.
+# Every ticket in the go-public epic writes one here; none of them ship.
+docs/plans/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
