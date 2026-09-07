@@ -1,0 +1,56 @@
+{
+  "manifestVersion": "1.0",
+  "id": "duplocloud.extensions.jenkinsbuild",
+  "name": "Jenkins Build",
+  "version": "0.1.1",
+
+  "sdkVersion": "REPLACED_BY_SKILL_FROM_sdk-version_ENDPOINT",
+  "backend": {
+    "assemblyDir": "duplocloud.extensions.jenkinsbuild/0.1.1/backend",
+    "entryAssembly": "Duplo.Extension.JenkinsBuild.dll"
+  },
+
+  "resources": [
+    {
+      "ticketOriginType": "JenkinsBuild",
+      "restSegment": "extensions/jenkins-builds",
+      "subType": "jenkins-build",
+      "archetype": "typed",
+      "registrar": "DevOpsResource",
+      "entityType": "Duplo.Extension.JenkinsBuild.JenkinsBuild",
+      "specType": "Duplo.Extension.JenkinsBuild.JenkinsBuildSpec",
+      "resultType": "Duplo.Extension.JenkinsBuild.JenkinsBuildResult",
+      "hooksType": "Duplo.Extension.JenkinsBuild.JenkinsBuildHooks",
+      "serviceType": "Duplo.Extension.JenkinsBuild.JenkinsBuildService"
+    }
+  ],
+
+  "frontend": {
+    "remote": {
+      "remoteName": "duploExtensionJenkinsBuild",
+      "remoteEntry": "/v1/aiservicedesk/extensions/duplocloud.extensions.jenkinsbuild/fe/remoteEntry.json",
+      "exposedModule": "./Extension",
+      "type": "module"
+    },
+    "menus": [
+      {
+        "id": "duplocloud.extensions.jenkinsbuild-jenkins",
+        "title": "Jenkins",
+        "type": "collapsible-section",
+        "icon": "rocket",
+        "children": [
+          {
+            "id": "duplocloud.extensions.jenkinsbuild-jenkins-build",
+            "title": "Jenkins Build",
+            "type": "item",
+            "icon": "rocket",
+            "relativeUrl": "extensions/jenkins-builds"
+          }
+        ]
+      }
+    ],
+    "routes": [
+      { "path": "extensions/jenkins-builds", "resourceType": "JenkinsBuild", "subType": "jenkins-build" }
+    ]
+  }
+}
