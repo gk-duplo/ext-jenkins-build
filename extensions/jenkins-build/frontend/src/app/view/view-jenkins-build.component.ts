@@ -73,10 +73,12 @@ import { ArtifactsPanelComponent } from '../shared/artifacts-panel.component';
                     <a ngbNavLink>Logs</a>
                     <ng-template ngbNavContent><jb-logs-panel [item]="it" /></ng-template>
                   </li>
-                  <li [ngbNavItem]="'artifacts'">
-                    <a ngbNavLink>Artifacts</a>
-                    <ng-template ngbNavContent><jb-artifacts-panel [item]="it" /></ng-template>
-                  </li>
+                  @if (hasArtifacts()) {
+                    <li [ngbNavItem]="'artifacts'">
+                      <a ngbNavLink>Artifacts</a>
+                      <ng-template ngbNavContent><jb-artifacts-panel [item]="it" /></ng-template>
+                    </li>
+                  }
                 </ul>
                 <div [ngbNavOutlet]="resultNav"></div>
               </div>
@@ -143,6 +145,11 @@ export class ViewJenkinsBuildComponent implements OnInit {
   protected activeTab = 'overview';
 
   protected readonly parameterEntries = computed(() => Object.entries(this.item()?.spec?.parameters ?? {}));
+
+  // Jenkins jobs that publish nothing (most build/deploy jobs) leave result.artifacts empty — an
+  // Artifacts tab with nothing to show is worse than no tab, so it only renders once the build actually
+  // reports at least one artifact.
+  protected readonly hasArtifacts = computed(() => (this.item()?.result?.artifacts?.length ?? 0) > 0);
 
   private poll?: Subscription;
 

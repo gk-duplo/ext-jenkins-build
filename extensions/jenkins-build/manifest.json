@@ -2,11 +2,11 @@
   "manifestVersion": "1.0",
   "id": "duplocloud.extensions.jenkinsbuild",
   "name": "Jenkins Build",
-  "version": "0.1.1",
+  "version": "0.1.2",
 
   "sdkVersion": "REPLACED_BY_SKILL_FROM_sdk-version_ENDPOINT",
   "backend": {
-    "assemblyDir": "duplocloud.extensions.jenkinsbuild/0.1.1/backend",
+    "assemblyDir": "duplocloud.extensions.jenkinsbuild/0.1.2/backend",
     "entryAssembly": "Duplo.Extension.JenkinsBuild.dll"
   },
 
