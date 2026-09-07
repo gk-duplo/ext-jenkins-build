@@ -32,8 +32,8 @@ import { JenkinsBuildService, JenkinsJobParameter } from '../jenkins-build.servi
         <div class="panel-content-title">
           <h4 class="font-weight-bolder">Create Jenkins Build</h4>
           <p class="panel-content-title-sub-text text-muted">
-            Pick a Jenkins scope and job, fill in any build parameters, and Create triggers the build in the
-            background — the view page tracks it to completion.
+            Pick Jenkins credentials and a job, fill in any build parameters, and Create triggers the build
+            in the background — the view page tracks it to completion.
           </p>
         </div>
 
@@ -50,15 +50,16 @@ import { JenkinsBuildService, JenkinsJobParameter } from '../jenkins-build.servi
               </form-field>
 
               <form-field>
-                <label class="element-label">Jenkins Scope *</label>
+                <label class="element-label">Jenkins Credentials *</label>
                 <ng-select name="scopeId" [ngModel]="scopeId()" (ngModelChange)="onScopeChange($event)"
                            [items]="scopeOptions()" bindLabel="name" bindValue="id"
                            [loading]="scopesLoading()"
-                           [placeholder]="scopesLoading() ? 'Loading scopes…' : (scopeOptions().length ? 'Select the Jenkins scope' : 'No Jenkins scope in this workspace')"
+                           [placeholder]="scopesLoading() ? 'Loading credentials…' : (scopeOptions().length ? 'Select Jenkins credentials' : 'No Jenkins credentials in this workspace')"
                            required validation-state validation-errors></ng-select>
                 @if (!scopesLoading() && !scopeOptions().length) {
                   <div class="text-muted field-hint mt-25">
-                    Attach a Jenkins scope to this workspace (Scopes → Add), then reopen this form.
+                    Attach Jenkins credentials to this workspace (a scope of type "other" with "jen" in its
+                    name — Scopes → Add), then reopen this form.
                   </div>
                 }
               </form-field>
@@ -99,7 +100,7 @@ import { JenkinsBuildService, JenkinsJobParameter } from '../jenkins-build.servi
 
         <div class="panel-content-sidenav">
           <div class="help-item">
-            <p class="help-item-title">Jenkins Scope</p>
+            <p class="help-item-title">Jenkins Credentials</p>
             <small class="text-muted">The Jenkins server whose credentials trigger and poll the build.</small>
           </div>
           <div class="help-item">

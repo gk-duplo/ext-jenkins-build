@@ -87,7 +87,7 @@ import { ArtifactsPanelComponent } from '../shared/artifacts-panel.component';
               <div class="p-1">
                 <div class="row">
                   <div class="col-md-6"><strong>Job:</strong> {{ it.spec?.jobName || '—' }}</div>
-                  <div class="col-md-6"><strong>Scope:</strong> {{ it.spec?.scopeIds?.[0] || '—' }}</div>
+                  <div class="col-md-6"><strong>Credentials:</strong> {{ it.spec?.scopeIds?.[0] || '—' }}</div>
                 </div>
                 @if (parameterEntries().length) {
                   <div class="mt-50">

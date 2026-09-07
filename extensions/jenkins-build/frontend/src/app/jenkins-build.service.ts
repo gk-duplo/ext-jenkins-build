@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { Observable, forkJoin, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 
 // Host-provided string DI tokens (no @common-lib import). REMOTE_DuploHttpClient exposes get/post
@@ -103,11 +103,27 @@ export class JenkinsBuildService {
     return this.http.post(`${this.base()}/${id}/deprovision`, {});
   }
 
-  /** Workspace scopes — the Add form's Jenkins scope picker. */
+  /** Jenkins credentials for the Add form's picker — workspace scopes narrowed to provider type/category
+   * "other" (the generic-HTTP-API provider kind Jenkins scopes are registered as) whose name contains
+   * "jen" (case-insensitive), so unrelated "other"-type scopes (e.g. a different SaaS integration) don't
+   * clutter the list. Scopes carry no type of their own; join against /providers by providerId. */
   listScopes(): Observable<{ id: string; name: string }[]> {
-    const url = `/v1/aiservicedesk/user/data/workspaces/${this.workspaceId()}/scopes`;
-    return this.http.get(url).pipe(
-      map((r: any) => ((this.unwrap(r) ?? []) as any[]).map(s => ({ id: s.id, name: s.name }))),
+    const ws = this.workspaceId();
+    const scopes$: Observable<any[]> = this.http.get(`/v1/aiservicedesk/user/data/workspaces/${ws}/scopes`).pipe(
+      map((r: any) => (this.unwrap(r) ?? []) as any[]),
+    );
+    const providers$: Observable<any[]> = this.http.get(`/v1/aiservicedesk/user/data/workspaces/${ws}/providers`).pipe(
+      map((r: any) => (this.unwrap(r) ?? []) as any[]),
+    );
+    return forkJoin({ scopes: scopes$, providers: providers$ }).pipe(
+      map(({ scopes, providers }) => {
+        const otherProviderIds = new Set(
+          providers.filter(p => p?.type === 'other' || p?.category === 'other').map(p => p.id),
+        );
+        return scopes
+          .filter(s => otherProviderIds.has(s.providerId) && (s.name ?? '').toLowerCase().includes('jen'))
+          .map(s => ({ id: s.id, name: s.name }));
+      }),
       catchError(() => of([])),
     );
   }
