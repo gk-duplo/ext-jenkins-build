@@ -1,0 +1,30 @@
+{
+  "resourceType": "MathOps",
+  "subType": "math-ops",
+  "label": "Math Ops",
+  "icon": "calculate",
+  "idField": "id",
+  "groups": [
+    {
+      "name": "Inputs",
+      "fields": [
+        { "type": "single", "key": "a", "label": "A", "value": "spec.a" },
+        { "type": "single", "key": "b", "label": "B", "value": "spec.b" }
+      ]
+    },
+    {
+      "name": "Operations",
+      "fields": [
+        { "type": "single", "key": "sum", "label": "Sum (A + B)", "value": "result.sum" },
+        { "type": "single", "key": "difference", "label": "Difference (A - B)", "value": "result.difference" },
+        { "type": "single", "key": "product", "label": "Product (A * B)", "value": "result.product" },
+        { "type": "single", "key": "quotient", "label": "Quotient (A / B)", "value": "result.quotient" },
+        { "type": "single", "key": "remainder", "label": "Remainder (A % B)", "value": "result.remainder" },
+        { "type": "single", "key": "power", "label": "Power (A ^ B)", "value": "result.power" },
+        { "type": "single", "key": "min", "label": "Min", "value": "result.min" },
+        { "type": "single", "key": "max", "label": "Max", "value": "result.max" },
+        { "type": "single", "key": "average", "label": "Average", "value": "result.average" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "manifestVersion": "1.0",
+  "id": "duplocloud.extensions.mathops",
+  "name": "Math Ops",
+  "version": "0.1.0",
+
+  "sdkVersion": "REPLACED_BY_SKILL_FROM_sdk-version_ENDPOINT",
+  "backend": {
+    "assemblyDir": "duplocloud.extensions.mathops/0.1.0/backend",
+    "entryAssembly": "Duplo.Extension.MathOps.dll"
+  },
+
+  "resources": [
+    {
+      "ticketOriginType": "MathOps",
+      "restSegment": "extensions/math-ops",
+      "subType": "math-ops",
+      "archetype": "typed",
+      "registrar": "DevOpsResource",
+      "entityType": "Duplo.Extension.MathOps.MathOps",
+      "specType": "Duplo.Extension.MathOps.MathOpsSpec",
+      "resultType": "Duplo.Extension.MathOps.MathOpsResult",
+      "hooksType": "Duplo.Extension.MathOps.MathOpsHooks",
+      "serviceType": "Duplo.Extension.MathOps.MathOpsService"
+    }
+  ],
+
+  "frontend": {
+    "remote": {
+      "remoteName": "duploExtensionMathOps",
+      "remoteEntry": "/v1/aiservicedesk/extensions/duplocloud.extensions.mathops/fe/remoteEntry.json",
+      "exposedModule": "./Extension",
+      "type": "module"
+    },
+    "menus": [
+      {
+        "id": "duplocloud.extensions.mathops-extensions",
+        "title": "Extensions",
+        "type": "collapsible-section",
+        "children": [
+          { "id": "duplocloud.extensions.mathops-math-ops", "title": "Math Ops", "type": "item", "matIcon": "calculate", "relativeUrl": "extensions/math-ops", "order": 50 }
+        ]
+      }
+    ],
+    "routes": [
+      { "path": "extensions/math-ops", "resourceType": "MathOps", "subType": "math-ops" }
+    ]
+  }
+}
